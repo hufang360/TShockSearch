@@ -28,8 +28,8 @@ hf.recipe
 ```
 
 ---
-#### [使用说明](https://www.bilibili.com/read/cv20440704)
 
+[使用说明](https://www.bilibili.com/read/cv20440704)（哔哩哔哩专栏）
 
 ---
 
