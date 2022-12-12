@@ -26,7 +26,7 @@ namespace Search
         /// </summary>
         static readonly string permissionSearch = "hf.search";
         static readonly string permissionSearchAdmin = "hf.search.admin";
-        static readonly string permissionReicpe = "hf.search";
+        static readonly string permissionReicpe = "hf.recipe";
 
         /// <summary>
         /// 路径
@@ -109,14 +109,14 @@ namespace Search
                 List<string> lines = new()
                 {
                     "/search <关键词>, 查找物品",
-                    "/search <id+>, 查找指定id范围的物品，例如 100+ 表示查看101~120的物品",
+                    "/search <id+>, 查找指定id起始的物品，例如 100+ 表示查看101~120的物品",
                     "/search list, 列出配置的关键词",
                 };
 
                 // 服主专用指令
                 if (args.Player.HasPermission(permissionSearchAdmin))
                 {
-                    lines.Add("/search add <关键词> <id1,id2>, 添加关键词");
+                    lines.Add("/search add <关键词> <id>, 添加关键词");
                     lines.Add("/search del <关键词>, 删除关键词");
                 }
 
