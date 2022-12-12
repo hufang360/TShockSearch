@@ -27,7 +27,11 @@ hf.search.admin
 hf.recipe
 ```
 
+---
+#### [使用说明](https://www.bilibili.com/read/cv20440704)
 
+
+---
 
 
 合成表部分，参考了 棱镜（TheLastPrism）写的 Recipes 插件。
