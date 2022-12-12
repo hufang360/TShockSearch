@@ -28,7 +28,9 @@ hf.recipe
 ```
 
 
-合成表部分，我参考了 棱镜（TheLastPrism）写的 Recipes 插件。
+
+
+合成表部分，参考了 棱镜（TheLastPrism）写的 Recipes 插件。
 参考链接：[https://www.bbstr.net/t/598/](https://www.bbstr.net/t/598/)
 
 还导入了562条[官方 Wiki 中文语言包](https://steamcommunity.com/sharedfiles/filedetails/?id=2440470208)里的名称。
