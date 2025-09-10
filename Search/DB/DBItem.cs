@@ -1,11 +1,9 @@
-using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using Terraria;
 using TShockAPI;
-using TShockAPI.DB;
 
 namespace Search.DB
 {
@@ -25,12 +23,27 @@ namespace Search.DB
         {
             database = db;
 
-            SqlTableCreator sqlcreator = new(db, db.GetSqlType() == SqlType.Sqlite ? new SqliteQueryCreator() : new MysqlQueryCreator());
-            sqlcreator.EnsureTableStructure(
-                new SqlTable("Item",
-                    new SqlColumn("Name", MySqlDbType.VarChar) { Primary = true, Unique = true },
-                    new SqlColumn("ID", MySqlDbType.Text)
-            ));
+            // Create table using raw SQL since SqlTableCreator is no longer available
+            var createTableSql = @"
+                CREATE TABLE IF NOT EXISTS Item (
+                    Name TEXT PRIMARY KEY UNIQUE,
+                    ID TEXT
+                );";
+            
+            try
+            {
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = createTableSql;
+                cmd.ExecuteNonQuery();
+                database.Close();
+            }
+            catch (Exception ex)
+            {
+                TShock.Log.Error($"Failed to create Item table: {ex}");
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
+            }
 
             if (!exist)
                 Initialize();
@@ -87,17 +100,31 @@ namespace Search.DB
         {
             try
             {
-                using QueryResult result = database.QueryReader("SELECT * FROM Item WHERE Name = @0;", keywords);
-                if (result.Read())
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "SELECT * FROM Item WHERE Name = @name;";
+                var param = cmd.CreateParameter();
+                param.ParameterName = "@name";
+                param.Value = keywords;
+                cmd.Parameters.Add(param);
+                
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
                 {
-                    string s = result.Get<string>("ID");
+                    string s = reader["ID"].ToString();
                     if (!string.IsNullOrEmpty(s))
+                    {
+                        database.Close();
                         return s;
+                    }
                 }
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
             return "";
         }
@@ -110,15 +137,21 @@ namespace Search.DB
             List<string> li = new();
             try
             {
-                using QueryResult result = database.QueryReader("SELECT * FROM Item;");
-                while (result.Read())
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "SELECT * FROM Item;";
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
                 {
-                    li.Add(result.Get<string>("Name"));
+                    li.Add(reader["Name"].ToString());
                 }
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
             return li;
         }
@@ -130,16 +163,30 @@ namespace Search.DB
         {
             try
             {
-                using QueryResult result = database.QueryReader("SELECT * FROM Item WHERE Name = @0;", keywords);
-                if (result.Read())
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "SELECT * FROM Item WHERE Name = @name;";
+                var param = cmd.CreateParameter();
+                param.ParameterName = "@name";
+                param.Value = keywords;
+                cmd.Parameters.Add(param);
+                
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read())
                 {
-                    if (!string.IsNullOrEmpty(result.Get<string>("Name")))
+                    if (!string.IsNullOrEmpty(reader["Name"].ToString()))
+                    {
+                        database.Close();
                         return true;
+                    }
                 }
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
             return false;
         }
@@ -179,11 +226,28 @@ namespace Search.DB
         {
             try
             {
-                database.Query("UPDATE Item SET ID = @1 WHERE Name = @0;", keywords, ids);
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "UPDATE Item SET ID = @id WHERE Name = @name;";
+                
+                var nameParam = cmd.CreateParameter();
+                nameParam.ParameterName = "@name";
+                nameParam.Value = keywords;
+                cmd.Parameters.Add(nameParam);
+                
+                var idParam = cmd.CreateParameter();
+                idParam.ParameterName = "@id";
+                idParam.Value = ids;
+                cmd.Parameters.Add(idParam);
+                
+                cmd.ExecuteNonQuery();
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
         }
 
@@ -194,11 +258,28 @@ namespace Search.DB
         {
             try
             {
-                database.Query("INSERT INTO Item (Name, ID) VALUES (@0, @1);", keywords, ids);
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "INSERT INTO Item (Name, ID) VALUES (@name, @id);";
+                
+                var nameParam = cmd.CreateParameter();
+                nameParam.ParameterName = "@name";
+                nameParam.Value = keywords;
+                cmd.Parameters.Add(nameParam);
+                
+                var idParam = cmd.CreateParameter();
+                idParam.ParameterName = "@id";
+                idParam.Value = ids;
+                cmd.Parameters.Add(idParam);
+                
+                cmd.ExecuteNonQuery();
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
         }
 
@@ -209,11 +290,23 @@ namespace Search.DB
         {
             try
             {
-                database.Query("DELETE FROM Item Where Name = @0;", keywords);
+                database.Open();
+                using var cmd = database.CreateCommand();
+                cmd.CommandText = "DELETE FROM Item WHERE Name = @name;";
+                
+                var param = cmd.CreateParameter();
+                param.ParameterName = "@name";
+                param.Value = keywords;
+                cmd.Parameters.Add(param);
+                
+                cmd.ExecuteNonQuery();
+                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
+                if (database.State == System.Data.ConnectionState.Open)
+                    database.Close();
             }
         }
     }
