@@ -106,26 +106,68 @@ namespace Search
             }
 
             List<string> li2 = new();
-            foreach (int id in recipe.requiredTile.Where((int i) => i >= 0))
-            {
-                var tileName = Lang._mapLegendCache[MapHelper.tileLookup[id]].Value;
 
-                // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
-                var map = Mapping.GetCraftingStations();
-                if (map.ContainsValue(tileName))
+            // 处理 requiredTile - 兼容不同 Terraria 版本
+            var requiredTileProp = recipe.GetType().GetField("requiredTile");
+            if (requiredTileProp != null && requiredTileProp.FieldType.IsArray)
+            {
+                var requiredTileArray = (int[])requiredTileProp.GetValue(recipe);
+                foreach (int id in requiredTileArray)
                 {
-                    foreach (var obj in map)
+                    if (id <= 0) continue;
+
+                    var tileName = Lang._mapLegendCache[MapHelper.tileLookup[id]].Value;
+
+                    // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
+                    var map = Mapping.GetCraftingStations();
+                    if (map.ContainsValue(tileName))
                     {
-                        if (obj.Value == tileName)
+                        foreach (var obj in map)
                         {
-                            items.Add(obj.Key);
-                            li2.Add(ShowItemLite(obj.Key));
+                            if (obj.Value == tileName)
+                            {
+                                items.Add(obj.Key);
+                                li2.Add(ShowItemLite(obj.Key));
+                            }
                         }
                     }
+                    else
+                    {
+                        li2.Add(tileName);
+                    }
                 }
-                else
+            }
+            else
+            {
+                // 如果是索引器方式，使用 maxRequirements
+                for (int tileIndex = 0; tileIndex < Recipe.maxRequirements; tileIndex++)
                 {
-                    li2.Add(tileName);
+                    var field = recipe.GetType().GetField($"requiredTile{tileIndex}");
+                    if (field != null)
+                    {
+                        int id = (int)field.GetValue(recipe);
+                        if (id <= 0) continue;
+
+                        var tileName = Lang._mapLegendCache[MapHelper.tileLookup[id]].Value;
+
+                        // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
+                        var map = Mapping.GetCraftingStations();
+                        if (map.ContainsValue(tileName))
+                        {
+                            foreach (var obj in map)
+                            {
+                                if (obj.Value == tileName)
+                                {
+                                    items.Add(obj.Key);
+                                    li2.Add(ShowItemLite(obj.Key));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            li2.Add(tileName);
+                        }
+                    }
                 }
             }
 
@@ -134,9 +176,9 @@ namespace Search
             if (recipe.needLava) li2.Add("岩浆");
             if (recipe.needSnowBiome) li2.Add("雪原");
             if (recipe.needGraveyardBiome) li2.Add("灵雾");
-            if (recipe.needEverythingSeed) li2.Add($"{Utils.Highlight("getfixedboi")}世界");
+            // if (recipe.needEverythingSeed) li2.Add($"{Utils.Highlight("getfixedboi")}世界");
 
-            string head = string.Format("[i/s{1}:{0}]", recipe.createItem.netID, recipe.createItem.stack);
+            string head = string.Format("[i/s{1}:{0}]", recipe.createItem.type, recipe.createItem.stack);
             string s = li2.Any() ? $" @ {string.Join(",", li2)}" : "";
 
             lines.Add($"{string.Join("", li)}{s} -> {head}");
@@ -153,7 +195,7 @@ namespace Search
                          select r;
             foreach (var r in founds)
             {
-                items.Add(r.createItem.netID);
+                items.Add(r.createItem.type);
                 ShowOneRequire(r, ref lines, ref items);
             }
         }
