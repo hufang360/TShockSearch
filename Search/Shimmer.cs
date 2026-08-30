@@ -58,7 +58,7 @@ namespace Search
 
             // 显示嬗变信息
             int id = ids[0];
-            lines = BuildLines(itemNameOrId, id);
+            lines = BuildLines(itemNameOrId, id).Lines;
 
             // 显示结果
             if (!lines.Any())
@@ -82,9 +82,10 @@ namespace Search
         /// <param name="itemNameOrId">用户输入（用于展示）</param>
         /// <param name="id">解析出的物品id</param>
         /// <returns>嬗变/分解/嬗变而来 信息行</returns>
-        public static List<string> BuildLines(string itemNameOrId, int id)
+        public static (List<string> Lines, List<int> Items) BuildLines(string itemNameOrId, int id)
         {
             List<string> lines = new();
+            List<int> shimmerItems = new();
             int equiv = Equivalent(id, forDecraft: false);
             int equivDecraft = Equivalent(id, forDecraft: true);
 
@@ -101,6 +102,7 @@ namespace Search
                 {
                     string note = ShimmerTransforms.IsItemTransformLocked(equiv) ? Utils.Highlight("（击败月总后解锁）") : "";
                     lines.Add($"嬗变: {Utils.ShowItemByID(toItem)}{note}");
+                    shimmerItems.Add(toItem);
                 }
 
                 // 分解还原（还原成合成材料）
@@ -112,6 +114,9 @@ namespace Search
                         .Select(r => ShowIcon(r.type, r.stack)));
                     bool locked = ShimmerTransforms.RecipeSets.PostSkeletron != null && ShimmerTransforms.IsRecipeIndexDecraftLocked(decraftIdx);
                     lines.Add($"分解: {mats}{(locked ? Utils.Highlight("（击败骷髅王/石巨人后解锁）") : "")}");
+                    shimmerItems.AddRange(Main.recipe[decraftIdx].requiredItem
+                        .Where(r => r.stack > 0)
+                        .Select(r => r.type));
                 }
             }
 
@@ -130,8 +135,9 @@ namespace Search
                 List<string> newLines = Utils.WrapItemResult(from);
                 newLines[0] = $"嬗变而来: {newLines[0]}";
                 lines = lines.Concat(newLines).ToList();
+                shimmerItems.AddRange(from);
             }
-            return lines;
+            return (lines, shimmerItems);
         }
 
         /// <summary>

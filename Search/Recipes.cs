@@ -75,7 +75,7 @@ namespace Search
             ShowCreate(id, ref lines, ref items);
 
             // 嬗变信息（合并 /shi 的展示）
-            List<string> shimmerLines = Shimmer.BuildLines(itemNameOrId, id);
+            var (shimmerLines, shimmerItems) = Shimmer.BuildLines(itemNameOrId, id);
 
             // 显示结果
             if (!lines.Any() && !shimmerLines.Any())
@@ -85,18 +85,18 @@ namespace Search
                 return;
             }
 
-            // 显示涉及物品的id（备注行）
+            // 追加嬗变信息（放在备注前面）
+            if (shimmerLines.Any())
+                lines = lines.Concat(shimmerLines).ToList();
+
+            // 显示涉及物品的id（备注行）：合成涉及的物品 + 嬗变信息中提到的物品
+            items = items.Concat(shimmerItems).Distinct().ToList();
             if (items.Any())
             {
-                items = items.Distinct().ToList();
                 List<string> newLines = Utils.WrapItemResult(items);
                 newLines[0] = $"备注: {newLines[0]}";
                 lines = lines.Concat(newLines).ToList();
             }
-
-            // 追加嬗变信息
-            if (shimmerLines.Any())
-                lines = lines.Concat(shimmerLines).ToList();
 
             if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
             PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
