@@ -92,31 +92,33 @@ namespace Search
             // 硬币特殊处理（微光中转化为财运，不产出物品）
             if (IsCommonCoin(id))
             {
-                lines.Add($"嬗变: {Utils.ShowItemByID(id)} 是硬币，扔进微光不会转化物品，而是增加财运(coin luck)");
+                lines.Add($"[i:{id}] @ {ShimmerStation} -> 财运(coin luck)");
             }
             else
             {
-                // 嬗变成什么
+                // 嬗变优先（与原版一致：有嬗变就不会触发分解）
                 int toItem = ShimmerTransforms.GetTransformToItem(equiv);
                 if (toItem > 0 && Utils.IsItemID(toItem))
                 {
                     string note = ShimmerTransforms.IsItemTransformLocked(equiv) ? Utils.Highlight("（击败月总后解锁）") : "";
-                    lines.Add($"嬗变: {Utils.ShowItemByID(toItem)}{note}");
+                    lines.Add($"[i:{id}] @ {ShimmerStation} -> [i:{toItem}]{note}");
                     shimmerItems.Add(toItem);
                 }
-
-                // 分解还原（还原成合成材料）
-                int decraftIdx = ShimmerTransforms.GetDecraftingRecipeIndex(equivDecraft);
-                if (decraftIdx >= 0 && decraftIdx < Main.recipe.Length)
+                else
                 {
-                    string mats = string.Join("", Main.recipe[decraftIdx].requiredItem
-                        .Where(r => r.stack > 0)
-                        .Select(r => ShowIcon(r.type, r.stack)));
-                    bool locked = ShimmerTransforms.RecipeSets.PostSkeletron != null && ShimmerTransforms.IsRecipeIndexDecraftLocked(decraftIdx);
-                    lines.Add($"分解: {mats}{(locked ? Utils.Highlight("（击败骷髅王/石巨人后解锁）") : "")}");
-                    shimmerItems.AddRange(Main.recipe[decraftIdx].requiredItem
-                        .Where(r => r.stack > 0)
-                        .Select(r => r.type));
+                    // 分解还原（还原成合成材料）
+                    int decraftIdx = ShimmerTransforms.GetDecraftingRecipeIndex(equivDecraft);
+                    if (decraftIdx >= 0 && decraftIdx < Main.recipe.Length)
+                    {
+                        string mats = string.Join("", Main.recipe[decraftIdx].requiredItem
+                            .Where(r => r.stack > 0)
+                            .Select(r => ShowIcon(r.type, r.stack)));
+                        bool locked = ShimmerTransforms.RecipeSets.PostSkeletron != null && ShimmerTransforms.IsRecipeIndexDecraftLocked(decraftIdx);
+                        lines.Add($"[i:{id}] @ {ShimmerStation} -> {mats}{(locked ? Utils.Highlight("（击败骷髅王/石巨人后解锁）") : "")}");
+                        shimmerItems.AddRange(Main.recipe[decraftIdx].requiredItem
+                            .Where(r => r.stack > 0)
+                            .Select(r => r.type));
+                    }
                 }
             }
 
@@ -141,6 +143,11 @@ namespace Search
         }
 
         /// <summary>
+        /// 微光（嬗变“制作站”）显示：物品图标+名称
+        /// </summary>
+        static readonly string ShimmerStation = "[i:5362]微光";
+
+        /// <summary>
         /// 帮助
         /// </summary>
         static void Help(CommandArgs args)
@@ -149,8 +156,7 @@ namespace Search
             List<string> lines = new()
             {
                 "/shi <物品名/id>, 查看物品的嬗变信息",
-                "嬗变: 物品扔进微光后变成什么",
-                "分解: 物品扔进微光后还原成哪些材料",
+                "格式: 物品 @ 微光 -> 结果（与原版一致，有嬗变就不会触发分解）",
                 "嬗变而来: 哪些物品扔进微光会变成它",
                 "/shi help, 显示本帮助",
             };
