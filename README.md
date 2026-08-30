@@ -1,6 +1,6 @@
 # TShockSearch
 
-[Search-v1.4-1458.dll](https://github.com/hufang360/TShockSearch/releases/download/1.4/Search-v1.4-1458.dll)
+[Search-v1.4.0-1458.dll](https://github.com/hufang360/TShockSearch/releases/download/1.4.0/Search-v1.4.0-1458.dll)
 
 #### 介绍
 查一查。查物品名，查物品id，查合成，查嬗变。
