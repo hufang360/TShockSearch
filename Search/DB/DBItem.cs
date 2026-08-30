@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using Microsoft.Data.Sqlite;
 using Terraria;
 using TShockAPI;
 
@@ -12,16 +13,16 @@ namespace Search.DB
     /// </summary>
     public class DBItem
     {
-        private IDbConnection database;
+        private readonly string _connStr;
 
         /// <summary>
         /// 物品表
         /// </summary>
-        /// <param name="db"></param>
+        /// <param name="connStr">连接字符串</param>
         /// <param name="exist">db文件是否存在，如果不存在则生成已知的关键词到初始数据库中</param>
-        public DBItem(IDbConnection db, bool exist)
+        public DBItem(string connStr, bool exist)
         {
-            database = db;
+            _connStr = connStr;
 
             // Create table using raw SQL since SqlTableCreator is no longer available
             var createTableSql = @"
@@ -32,21 +33,28 @@ namespace Search.DB
             
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = createTableSql;
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error($"Failed to create Item table: {ex}");
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
 
             if (!exist)
                 Initialize();
+        }
+
+        /// <summary>
+        /// 打开一个新的连接（连接池复用，用完即释放）
+        /// </summary>
+        SqliteConnection Open()
+        {
+            var conn = new SqliteConnection(_connStr);
+            conn.Open();
+            return conn;
         }
 
         /// <summary>
@@ -69,26 +77,32 @@ namespace Search.DB
             };
 
             // 批量插入到数据库
-            database.Open();
-            var cmd = database.CreateCommand();
-            var transaction = database.BeginTransaction();
-            cmd.Transaction = transaction;
             try
             {
-                for (var i = 0; i < li.Count; i++)
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
+                using var transaction = conn.BeginTransaction();
+                cmd.Transaction = transaction;
+                cmd.CommandText = "INSERT INTO Item (Name, ID) VALUES (@name, @id);";
+                var pName = cmd.CreateParameter();
+                pName.ParameterName = "@name";
+                cmd.Parameters.Add(pName);
+                var pId = cmd.CreateParameter();
+                pId.ParameterName = "@id";
+                cmd.Parameters.Add(pId);
+
+                for (var i = 0; i + 1 < li.Count; i += 2)
                 {
-                    cmd.CommandText = string.Format("INSERT INTO Item (Name, ID) VALUES (\"{0}\", \"{1}\");", li[i], li[i + 1]);
+                    pName.Value = li[i];
+                    pId.Value = li[i + 1];
                     cmd.ExecuteNonQuery();
-                    i++;
                 }
                 transaction.Commit();
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
                 TShock.Log.Error(ex.ToString());
             }
-            database.Close();
         }
 
         /// <summary>
@@ -100,8 +114,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Item WHERE Name = @name;";
                 var param = cmd.CreateParameter();
                 param.ParameterName = "@name";
@@ -113,18 +127,12 @@ namespace Search.DB
                 {
                     string s = reader["ID"].ToString();
                     if (!string.IsNullOrEmpty(s))
-                    {
-                        database.Close();
                         return s;
-                    }
                 }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return "";
         }
@@ -137,21 +145,18 @@ namespace Search.DB
             List<string> li = new();
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Item;";
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
                     li.Add(reader["Name"].ToString());
                 }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return li;
         }
@@ -163,8 +168,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Item WHERE Name = @name;";
                 var param = cmd.CreateParameter();
                 param.ParameterName = "@name";
@@ -175,18 +180,12 @@ namespace Search.DB
                 if (reader.Read())
                 {
                     if (!string.IsNullOrEmpty(reader["Name"].ToString()))
-                    {
-                        database.Close();
                         return true;
-                    }
                 }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return false;
         }
@@ -226,8 +225,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "UPDATE Item SET ID = @id WHERE Name = @name;";
                 
                 var nameParam = cmd.CreateParameter();
@@ -241,13 +240,10 @@ namespace Search.DB
                 cmd.Parameters.Add(idParam);
                 
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
         }
 
@@ -258,8 +254,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "INSERT INTO Item (Name, ID) VALUES (@name, @id);";
                 
                 var nameParam = cmd.CreateParameter();
@@ -273,13 +269,10 @@ namespace Search.DB
                 cmd.Parameters.Add(idParam);
                 
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
         }
 
@@ -290,8 +283,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "DELETE FROM Item WHERE Name = @name;";
                 
                 var param = cmd.CreateParameter();
@@ -300,13 +293,10 @@ namespace Search.DB
                 cmd.Parameters.Add(param);
                 
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
         }
     }

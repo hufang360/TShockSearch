@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
+using Microsoft.Data.Sqlite;
 using TShockAPI;
 
 namespace Search.DB
@@ -11,16 +11,16 @@ namespace Search.DB
     /// </summary>
     public class DBWiki
     {
-        private IDbConnection database;
+        private readonly string _connStr;
 
         /// <summary>
         /// wiki表
         /// </summary>
-        /// <param name="db"></param>        
+        /// <param name="connStr">连接字符串</param>        
         /// <param name="exist">db文件是否存在，如果不存在则生成已知物品名称到初始数据库中</param>
-        public DBWiki(IDbConnection db, bool exist)
+        public DBWiki(string connStr, bool exist)
         {
-            database = db;
+            _connStr = connStr;
 
             // Create table using raw SQL since SqlTableCreator is no longer available
             var createTableSql = @"
@@ -31,21 +31,28 @@ namespace Search.DB
             
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = createTableSql;
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error($"Failed to create Wiki table: {ex}");
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
 
             if (!exist)
                 Initialize();
+        }
+
+        /// <summary>
+        /// 打开一个新的连接（连接池复用，用完即释放）
+        /// </summary>
+        SqliteConnection Open()
+        {
+            var conn = new SqliteConnection(_connStr);
+            conn.Open();
+            return conn;
         }
 
 
@@ -624,25 +631,32 @@ namespace Search.DB
             #endregion
 
             // 批量插入到数据库
-            database.Open();
-            var cmd = database.CreateCommand();
-            var transaction = database.BeginTransaction();
-            cmd.Transaction = transaction;
             try
             {
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
+                using var transaction = conn.BeginTransaction();
+                cmd.Transaction = transaction;
+                cmd.CommandText = "INSERT INTO Wiki (ID, Name) VALUES (@id, @name);";
+                var pId = cmd.CreateParameter();
+                pId.ParameterName = "@id";
+                cmd.Parameters.Add(pId);
+                var pName = cmd.CreateParameter();
+                pName.ParameterName = "@name";
+                cmd.Parameters.Add(pName);
+
                 foreach (var obj in dict)
                 {
-                    cmd.CommandText = string.Format("INSERT INTO Wiki (ID, Name) VALUES ({0}, \"{1}\");", obj.Key, obj.Value);
+                    pId.Value = obj.Key;
+                    pName.Value = obj.Value;
                     cmd.ExecuteNonQuery();
                 }
                 transaction.Commit();
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
                 TShock.Log.Error(ex.ToString());
             }
-            database.Close();
         }
 
 
@@ -655,8 +669,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Wiki WHERE Name = @name;";
                 var param = cmd.CreateParameter();
                 param.ParameterName = "@name";
@@ -666,17 +680,12 @@ namespace Search.DB
                 using var reader = cmd.ExecuteReader();
                 if (reader.Read())
                 {
-                    var result = Convert.ToInt32(reader["ID"]);
-                    database.Close();
-                    return result;
+                    return Convert.ToInt32(reader["ID"]);
                 }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return 0;
         }
@@ -689,21 +698,18 @@ namespace Search.DB
             Dictionary<int, string> dict = new();
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Wiki;";
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
                     dict.Add(Convert.ToInt32(reader["ID"]), reader["Name"].ToString());
                 }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return dict;
         }
@@ -723,8 +729,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT * FROM Wiki WHERE ID = @id;";
                 var param = cmd.CreateParameter();
                 param.ParameterName = "@id";
@@ -733,17 +739,11 @@ namespace Search.DB
                 
                 using var reader = cmd.ExecuteReader();
                 if (reader.Read())
-                {
-                    database.Close();
                     return true;
-                }
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
             return false;
         }
@@ -752,8 +752,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "UPDATE Wiki SET Name = @name WHERE ID = @id;";
                 
                 var idParam = cmd.CreateParameter();
@@ -767,13 +767,10 @@ namespace Search.DB
                 cmd.Parameters.Add(nameParam);
                 
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
         }
 
@@ -781,8 +778,8 @@ namespace Search.DB
         {
             try
             {
-                database.Open();
-                using var cmd = database.CreateCommand();
+                using var conn = Open();
+                using var cmd = conn.CreateCommand();
                 cmd.CommandText = "INSERT INTO Wiki (ID, Name) VALUES (@id, @name);";
                 
                 var idParam = cmd.CreateParameter();
@@ -796,13 +793,10 @@ namespace Search.DB
                 cmd.Parameters.Add(nameParam);
                 
                 cmd.ExecuteNonQuery();
-                database.Close();
             }
             catch (Exception ex)
             {
                 TShock.Log.Error(ex.ToString());
-                if (database.State == System.Data.ConnectionState.Open)
-                    database.Close();
             }
         }
 

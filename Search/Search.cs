@@ -27,6 +27,7 @@ namespace Search
         static readonly string permissionSearch = "hf.search";
         static readonly string permissionSearchAdmin = "hf.search.admin";
         static readonly string permissionReicpe = "hf.recipe";
+        static readonly string permissionShimmer = "hf.shimmer";
 
         /// <summary>
         /// 路径
@@ -73,13 +74,17 @@ namespace Search
             // 读取配置文件
             var _config = Config.Load(ConfigFile);
 
+            // 分页行数
+            Utils.MaxLinesPerPage = _config.maxLinesPerPage > 0 ? _config.maxLinesPerPage : 8;
+
             // 移除冲突的其它指令别名
             string[] cmds1 = new string[] { "search" }.Concat(_config.aliasSearch).ToArray();
             string[] cmds2 = new string[] { "recipe" }.Concat(_config.aliasRecipe).ToArray();
-            string[] cmds3 = cmds1.Concat(cmds2).ToArray();
+            string[] cmds3 = new string[] { "shimmer" }.Concat(_config.aliasShimmer ?? Array.Empty<string>()).ToArray();
+            string[] cmdsAll = cmds1.Concat(cmds2).Concat(cmds3).ToArray();
             foreach (Command c in Commands.ChatCommands)
             {
-                foreach (var cmd in cmds3)
+                foreach (var cmd in cmdsAll)
                 {
                     if (c.Names.Contains(cmd))
                         c.Names.Remove(cmd);
@@ -89,6 +94,7 @@ namespace Search
             // 注册指令
             Commands.ChatCommands.Add(new Command(permissionSearch, SearchCommand, cmds1) { HelpText = "查物品" });
             Commands.ChatCommands.Add(new Command(permissionReicpe, Recipes.Manage, cmds2) { HelpText = "查合成" });
+            Commands.ChatCommands.Add(new Command(permissionShimmer, Shimmer.Manage, cmds3) { HelpText = "查嬗变" });
 
 
             // 初始化数据库
@@ -125,7 +131,8 @@ namespace Search
                 PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
                 {
                     HeaderFormat = $"{HL("/search")}指令用法" + "({0}/{1}):",
-                    FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier)
+                    FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
+                    MaxLinesPerPage = Utils.MaxLinesPerPage,
                 });
             }
             #endregion
@@ -238,7 +245,8 @@ namespace Search
                 PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
                 {
                     HeaderFormat = $"“{Utils.Highlight(itemNameOrId)}”的查询结果" + "({0}/{1}):",
-                    FooterFormat = $"输入{Utils.Highlight(ft)}查看更多".SFormat(Commands.Specifier)
+                    FooterFormat = $"输入{Utils.Highlight(ft)}查看更多".SFormat(Commands.Specifier),
+                    MaxLinesPerPage = Utils.MaxLinesPerPage,
                 });
             }
         }
@@ -278,7 +286,8 @@ namespace Search
                 PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
                 {
                     HeaderFormat = $"id为“{HL(s)}”的物品" + "({0}/{1}):",
-                    FooterFormat = $"输入{Utils.Highlight(ft)}查看更多".SFormat(Commands.Specifier)
+                    FooterFormat = $"输入{Utils.Highlight(ft)}查看更多".SFormat(Commands.Specifier),
+                    MaxLinesPerPage = Utils.MaxLinesPerPage,
                 });
             }
         }
@@ -298,7 +307,8 @@ namespace Search
             PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
             {
                 HeaderFormat = $"自定义的关键词" + "({0}/{1}):",
-                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier)
+                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
+                MaxLinesPerPage = Utils.MaxLinesPerPage,
             });
 
         }
@@ -451,7 +461,11 @@ namespace Search
             if (count == 0)
                 args.Player.SendInfoMessage("未导入任何数据，json文件可能不正确！");
             else
+            {
                 args.Player.SendSuccessMessage($"成功导入{count}条数据！(*^▽^*)");
+                // 名称索引失效，下次查询自动重建
+                Utils.MarkNameIndexDirty();
+            }
         }
 
     }

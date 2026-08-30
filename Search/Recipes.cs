@@ -53,7 +53,8 @@ namespace Search
                 PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
                 {
                     HeaderFormat = "匹配到多个物品({0}/{1}):",
-                    FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier)
+                    FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
+                    MaxLinesPerPage = Utils.MaxLinesPerPage,
                 });
                 return;
             }
@@ -76,7 +77,8 @@ namespace Search
             // 显示结果
             if (!lines.Any())
             {
-                args.Player.SendInfoMessage($"无{HL(itemNameOrId)}的配方，{HL(itemNameOrId)}也不是合成材料！");
+                string item = Utils.ShowItemByText(itemNameOrId, id);
+                args.Player.SendInfoMessage($"{item}，无合成配方，也不是合成材料！");
                 return;
             }
 
@@ -89,7 +91,8 @@ namespace Search
             PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
             {
                 HeaderFormat = $"{HightLightItemName(id)} 的合成信息" + "({0}/{1}):",
-                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier)
+                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
+                MaxLinesPerPage = Utils.MaxLinesPerPage,
             });
         }
 
@@ -108,74 +111,36 @@ namespace Search
             List<string> li2 = new();
 
             // 处理 requiredTile - 兼容不同 Terraria 版本
+            // 1.4.5+ 为单个 int（图格id）；1.4.4 及更早为 int[] 数组
             var requiredTileProp = recipe.GetType().GetField("requiredTile");
-            if (requiredTileProp != null && requiredTileProp.FieldType.IsArray)
+            if (requiredTileProp != null)
             {
-                var requiredTileArray = (int[])requiredTileProp.GetValue(recipe);
-                foreach (int id in requiredTileArray)
+                if (requiredTileProp.FieldType.IsArray)
                 {
-                    if (id <= 0) continue;
-
-                    var tileName = Lang._mapLegendCache[MapHelper.tileLookup[id]].Value;
-
-                    // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
-                    var map = Mapping.GetCraftingStations();
-                    if (map.ContainsValue(tileName))
+                    // 数组形式
+                    var requiredTileArray = (int[])requiredTileProp.GetValue(recipe);
+                    foreach (int id in requiredTileArray)
                     {
-                        foreach (var obj in map)
-                        {
-                            if (obj.Value == tileName)
-                            {
-                                items.Add(obj.Key);
-                                li2.Add(ShowItemLite(obj.Key));
-                            }
-                        }
-                    }
-                    else
-                    {
-                        li2.Add(tileName);
+                        if (id > 0)
+                            ShowStation(id, ref li2, ref items);
                     }
                 }
-            }
-            else
-            {
-                // 如果是索引器方式，使用 maxRequirements
-                for (int tileIndex = 0; tileIndex < Recipe.maxRequirements; tileIndex++)
+                else if (requiredTileProp.FieldType == typeof(int))
                 {
-                    var field = recipe.GetType().GetField($"requiredTile{tileIndex}");
-                    if (field != null)
-                    {
-                        int id = (int)field.GetValue(recipe);
-                        if (id <= 0) continue;
-
-                        var tileName = Lang._mapLegendCache[MapHelper.tileLookup[id]].Value;
-
-                        // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
-                        var map = Mapping.GetCraftingStations();
-                        if (map.ContainsValue(tileName))
-                        {
-                            foreach (var obj in map)
-                            {
-                                if (obj.Value == tileName)
-                                {
-                                    items.Add(obj.Key);
-                                    li2.Add(ShowItemLite(obj.Key));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            li2.Add(tileName);
-                        }
-                    }
+                    // 单个图格形式
+                    int id = (int)requiredTileProp.GetValue(recipe);
+                    if (id > 0)
+                        ShowStation(id, ref li2, ref items);
                 }
             }
 
-            if (recipe.needHoney) li2.Add("蜂蜜");
-            if (recipe.needWater) li2.Add("水");
-            if (recipe.needLava) li2.Add("岩浆");
-            if (recipe.needSnowBiome) li2.Add("雪原");
-            if (recipe.needGraveyardBiome) li2.Add("灵雾");
+            if (recipe.needHoney) li2.Add("[i:1128]蜂蜜"); // 1128
+            if (recipe.needWater) li2.Add("[i:206]水"); // 206
+            if (recipe.needLava) li2.Add("[i:207]岩浆"); // 207
+            if (recipe.needSnowBiome) li2.Add("[i:1596]雪原"); // 1596
+            if (recipe.needGraveyardBiome) li2.Add("[i:4358]灵雾"); // 4358
+            if (recipe.needTorchGodsFavor) li2.Add("[i:5043]火把神祝福"); // 5043
+            if (recipe.needMechdusa) li2.Add("[i:5334]机械美杜莎");  // 5334
             // if (recipe.needEverythingSeed) li2.Add($"{Utils.Highlight("getfixedboi")}世界");
 
             string head = string.Format("[i/s{1}:{0}]", recipe.createItem.type, recipe.createItem.stack);
@@ -184,6 +149,39 @@ namespace Search
             lines.Add($"{string.Join("", li)}{s} -> {head}");
         }
 
+
+        /// <summary>
+        /// 显示合成条件中的制作站（图格）
+        /// </summary>
+        /// <param name="tileId">图格id</param>
+        static void ShowStation(int tileId, ref List<string> li2, ref List<int> items)
+        {
+            // 图格 -> 图例名称（带越界保护）
+            string tileName = "";
+            int legend = tileId >= 0 && tileId < MapHelper.tileLookup.Length ? MapHelper.tileLookup[tileId] : -1;
+            if (legend >= 0 && legend < Lang._mapLegendCache.Length)
+                tileName = Lang._mapLegendCache[legend].Value;
+            if (string.IsNullOrEmpty(tileName))
+                tileName = $"图格{tileId}";
+
+            // 匹配物品图标（可能匹配到2个，例如：砧，匹配铁砧和铅砧）
+            var map = Mapping.GetCraftingStations();
+            if (map.ContainsValue(tileName))
+            {
+                foreach (var obj in map)
+                {
+                    if (obj.Value == tileName)
+                    {
+                        items.Add(obj.Key);
+                        li2.Add(ShowItemLite(obj.Key));
+                    }
+                }
+            }
+            else
+            {
+                li2.Add(tileName);
+            }
+        }
 
         /// <summary>
         /// 显示合成

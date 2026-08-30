@@ -1,5 +1,4 @@
 using Microsoft.Data.Sqlite;
-using System.Data;
 using System.IO;
 
 namespace Search.DB
@@ -22,10 +21,10 @@ namespace Search.DB
         public static void Connect(string sql)
         {
             bool exist = File.Exists(sql);
-            IDbConnection db = new SqliteConnection(string.Format("Data Source={0}", sql));
+            var connStr = $"Data Source={sql}";
 
-            Item = new DBItem(db, exist);
-            Wiki = new DBWiki(db, exist);
+            Item = new DBItem(connStr, exist);
+            Wiki = new DBWiki(connStr, exist);
         }
     }
 }

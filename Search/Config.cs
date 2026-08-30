@@ -19,6 +19,17 @@ namespace Search
         /// </summary>
         public string[] aliasRecipe = { "r", "合成表", "合成", "合", "制作" };
 
+        /// <summary>
+        /// 嬗变指令别名
+        /// </summary>
+        public string[] aliasShimmer = { "shi" };
+
+
+        /// <summary>
+        /// 分页每页显示行数
+        /// </summary>
+        public int maxLinesPerPage = 8;
+
 
         /// <summary>
         /// 加载配置文件
