@@ -81,7 +81,7 @@ namespace Search
             if (!lines.Any() && !shimmerLines.Any())
             {
                 string item = Utils.ShowItemByText(itemNameOrId, id);
-                args.Player.SendInfoMessage($"{item}，无合成配方，也不是合成材料！");
+                args.Player.SendInfoMessage($"{item}，无合成配方，也不是合成材料，也没有嬗变信息！");
                 return;
             }
 
