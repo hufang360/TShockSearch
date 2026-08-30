@@ -74,23 +74,36 @@ namespace Search
             // 可以合成哪些物品
             ShowCreate(id, ref lines, ref items);
 
+            // 嬗变信息（合并 /shi 的展示）
+            List<string> shimmerLines = Shimmer.BuildLines(itemNameOrId, id);
+
             // 显示结果
-            if (!lines.Any())
+            if (!lines.Any() && !shimmerLines.Any())
             {
                 string item = Utils.ShowItemByText(itemNameOrId, id);
                 args.Player.SendInfoMessage($"{item}，无合成配方，也不是合成材料！");
                 return;
             }
 
-            // 显示涉及物品的id
-            items = items.Distinct().ToList();
-            List<string> newLines = Utils.WrapItemResult(items);
-            newLines[0] = $"备注: {newLines[0]}";
-            lines = lines.Concat(newLines).ToList();
+            // 显示涉及物品的id（备注行）
+            if (items.Any())
+            {
+                items = items.Distinct().ToList();
+                List<string> newLines = Utils.WrapItemResult(items);
+                newLines[0] = $"备注: {newLines[0]}";
+                lines = lines.Concat(newLines).ToList();
+            }
+
+            // 追加嬗变信息
+            if (shimmerLines.Any())
+                lines = lines.Concat(shimmerLines).ToList();
+
             if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
             PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
             {
-                HeaderFormat = $"{HightLightItemName(id)} 的合成信息" + "({0}/{1}):",
+                HeaderFormat = (shimmerLines.Any()
+                    ? $"{HightLightItemName(id)} 的合成·嬗变信息"
+                    : $"{HightLightItemName(id)} 的合成信息") + "({0}/{1}):",
                 FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
                 MaxLinesPerPage = Utils.MaxLinesPerPage,
             });

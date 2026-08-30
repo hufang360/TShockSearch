@@ -58,6 +58,33 @@ namespace Search
 
             // 显示嬗变信息
             int id = ids[0];
+            lines = BuildLines(itemNameOrId, id);
+
+            // 显示结果
+            if (!lines.Any())
+            {
+                args.Player.SendInfoMessage($"{Utils.ShowItemByText(itemNameOrId, id)}，没有嬗变信息！");
+                return;
+            }
+
+            if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
+            PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
+            {
+                HeaderFormat = $"{HighlightedItem(id)} 的嬗变信息" + "({0}/{1}):",
+                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
+                MaxLinesPerPage = Utils.MaxLinesPerPage,
+            });
+        }
+
+        /// <summary>
+        /// 生成物品的嬗变信息行（/r 合成查询合并显示与 /shi 独立查询共用）
+        /// </summary>
+        /// <param name="itemNameOrId">用户输入（用于展示）</param>
+        /// <param name="id">解析出的物品id</param>
+        /// <returns>嬗变/分解/嬗变而来 信息行</returns>
+        public static List<string> BuildLines(string itemNameOrId, int id)
+        {
+            List<string> lines = new();
             int equiv = Equivalent(id, forDecraft: false);
             int equivDecraft = Equivalent(id, forDecraft: true);
 
@@ -72,7 +99,7 @@ namespace Search
                 int toItem = ShimmerTransforms.GetTransformToItem(equiv);
                 if (toItem > 0 && Utils.IsItemID(toItem))
                 {
-                    string note = ShimmerTransforms.IsItemTransformLocked(equiv) ? HL("（击败月总后解锁）") : "";
+                    string note = ShimmerTransforms.IsItemTransformLocked(equiv) ? Utils.Highlight("（击败月总后解锁）") : "";
                     lines.Add($"嬗变: {Utils.ShowItemByID(toItem)}{note}");
                 }
 
@@ -84,7 +111,7 @@ namespace Search
                         .Where(r => r.stack > 0)
                         .Select(r => ShowIcon(r.type, r.stack)));
                     bool locked = ShimmerTransforms.RecipeSets.PostSkeletron != null && ShimmerTransforms.IsRecipeIndexDecraftLocked(decraftIdx);
-                    lines.Add($"分解: {mats}{(locked ? HL("（击败骷髅王/石巨人后解锁）") : "")}");
+                    lines.Add($"分解: {mats}{(locked ? Utils.Highlight("（击败骷髅王/石巨人后解锁）") : "")}");
                 }
             }
 
@@ -98,27 +125,13 @@ namespace Search
                         from.Add(i);
                 }
             }
-
-            // 显示结果
-            if (!lines.Any() && !from.Any())
-            {
-                args.Player.SendInfoMessage($"{Utils.ShowItemByText(itemNameOrId, id)}，没有嬗变信息！");
-                return;
-            }
             if (from.Any())
             {
                 List<string> newLines = Utils.WrapItemResult(from);
                 newLines[0] = $"嬗变而来: {newLines[0]}";
                 lines = lines.Concat(newLines).ToList();
             }
-
-            if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
-            PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
-            {
-                HeaderFormat = $"{HighlightedItem(id)} 的嬗变信息" + "({0}/{1}):",
-                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
-                MaxLinesPerPage = Utils.MaxLinesPerPage,
-            });
+            return lines;
         }
 
         /// <summary>
