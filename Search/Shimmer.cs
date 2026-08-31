@@ -4,85 +4,25 @@ using System.Linq;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ID;
-using TShockAPI;
 
 namespace Search
 {
     /// <summary>
-    /// 查嬗变
+    /// 嬗变信息生成（供 /r 合成查询合并展示）
     /// </summary>
-    public class Shimmer
+    public static class Shimmer
     {
         /// <summary>
-        /// 嬗变查询指令
+        /// 微光（嬗变“制作站”）显示：物品图标+名称
         /// </summary>
-        public static void Manage(CommandArgs args)
-        {
-            var HL = Utils.Highlight;
-
-            // /shi 或 /shi help|h 显示帮助
-            if (args.Parameters.Count == 0 || args.Parameters[0].ToLowerInvariant() is "help" or "h" or "帮助")
-            {
-                Help(args);
-                return;
-            }
-
-            // 记录用户输入的指令
-            string rawCMD = Utils.GetInputRawCMD(args, 1);
-            string ft = rawCMD + " {{0}}";
-            int pageNumber;
-
-            // 匹配目标物品的id
-            string itemNameOrId = args.Parameters[0];
-            List<int> ids = Utils.GetItemIDByIdOrName(itemNameOrId, false);
-            if (ids.Count == 0)
-            {
-                args.Player.SendInfoMessage($"未找到物品，可输入{HL("/search")} {HL(itemNameOrId)}模糊匹配相关的物品名称和id");
-                return;
-            }
-
-            // 找到多个
-            List<string> lines = new();
-            if (ids.Count > 1)
-            {
-                lines = Utils.WrapItemResult(ids);
-                if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
-                PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
-                {
-                    HeaderFormat = "匹配到多个物品({0}/{1}):",
-                    FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
-                    MaxLinesPerPage = Utils.MaxLinesPerPage,
-                });
-                return;
-            }
-
-            // 显示嬗变信息
-            int id = ids[0];
-            lines = BuildLines(itemNameOrId, id).Lines;
-
-            // 显示结果
-            if (!lines.Any())
-            {
-                args.Player.SendInfoMessage($"{Utils.ShowItemByText(itemNameOrId, id)}，没有嬗变信息！");
-                return;
-            }
-
-            if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out pageNumber)) return;
-            PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
-            {
-                HeaderFormat = $"{HighlightedItem(id)} 的嬗变信息" + "({0}/{1}):",
-                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
-                MaxLinesPerPage = Utils.MaxLinesPerPage,
-            });
-        }
+        static readonly string ShimmerStation = "[i:5362]微光";
 
         /// <summary>
-        /// 生成物品的嬗变信息行（/r 合成查询合并显示与 /shi 独立查询共用）
+        /// 生成物品的嬗变信息行
         /// </summary>
-        /// <param name="itemNameOrId">用户输入（用于展示）</param>
-        /// <param name="id">解析出的物品id</param>
-        /// <returns>嬗变/分解/嬗变而来 信息行</returns>
-        public static (List<string> Lines, List<int> Items) BuildLines(string itemNameOrId, int id)
+        /// <param name="id">物品id</param>
+        /// <returns>嬗变/分解/嬗变而来 信息行，以及涉及物品的id列表</returns>
+        public static (List<string> Lines, List<int> Items) BuildLines(int id)
         {
             List<string> lines = new();
             List<int> shimmerItems = new();
@@ -134,41 +74,11 @@ namespace Search
             }
             if (from.Any())
             {
-                List<string> newLines = Utils.WrapItemResult(from);
-                newLines[0] = $"嬗变而来: {newLines[0]}";
-                lines = lines.Concat(newLines).ToList();
+                // 与嬗变显示一致：来源物品 @ 微光 -> 本物品
+                lines.AddRange(from.Select(x => $"[i:{x}] @ {ShimmerStation} -> [i:{id}]"));
                 shimmerItems.AddRange(from);
             }
             return (lines, shimmerItems);
-        }
-
-        /// <summary>
-        /// 微光（嬗变“制作站”）显示：物品图标+名称
-        /// </summary>
-        static readonly string ShimmerStation = "[i:5362]微光";
-
-        /// <summary>
-        /// 帮助
-        /// </summary>
-        static void Help(CommandArgs args)
-        {
-            var HL = Utils.Highlight;
-            List<string> lines = new()
-            {
-                "/shi <物品名/id>, 查看物品的嬗变信息",
-                "格式: 物品 @ 微光 -> 结果（与原版一致，有嬗变就不会触发分解）",
-                "嬗变而来: 哪些物品扔进微光会变成它",
-                "/shi help, 显示本帮助",
-            };
-            if (!PaginationTools.TryParsePageNumber(args.Parameters, 1, args.Player, out int pageNumber)) return;
-            string rawCMD = Utils.GetInputRawCMD(args);
-            string ft = rawCMD + " help {{0}}";
-            PaginationTools.SendPage(args.Player, pageNumber, lines, new PaginationTools.Settings
-            {
-                HeaderFormat = $"{HL("/shi")}指令用法" + "({0}/{1}):",
-                FooterFormat = $"输入{HL(ft)}查看更多".SFormat(Commands.Specifier),
-                MaxLinesPerPage = Utils.MaxLinesPerPage,
-            });
         }
 
         /// <summary>
@@ -199,15 +109,5 @@ namespace Search
         /// 显示物品图标
         /// </summary>
         static string ShowIcon(int id, int stack = 1) { return $"[i/s{stack}:{id}]"; }
-
-        /// <summary>
-        /// 高亮显示带物品图标的物品名称
-        /// </summary>
-        static string HighlightedItem(int id)
-        {
-            var s = $"{Lang.GetItemNameValue(id)}({id})";
-            return $"[i:{id}]{Utils.Highlight(s)}";
-        }
-
     }
 }

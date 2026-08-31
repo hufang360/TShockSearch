@@ -1,6 +1,6 @@
 # TShockSearch
 
-[Search-v1.4.0-1458.dll](https://github.com/hufang360/TShockSearch/releases/download/1.4.0/Search-v1.4.0-1458.dll)
+[Search-v1.4.1-1458.dll](https://github.com/hufang360/TShockSearch/releases/download/1.4.1/Search-v1.4.1-1458.dll)
 
 #### 介绍
 查一查。查物品名，查物品id，查合成，查嬗变。
@@ -11,7 +11,6 @@
 /search <id+>, 查找指定id起始的物品，例如 100+ 表示查看101~120的物品
 /search list, 列出配置的关键词
 /recipe <物品名/id>, 查询物品的合成信息及嬗变信息
-/shimmer <物品名/id>, 查看物品的嬗变（微光）信息
 
 // 给管理员用
 /search add <关键词> <id>, 添加关键词
@@ -21,7 +20,6 @@
 // 简写
 /search = /s
 /recipe = /r
-/shimmer = /shi
 ```
 
 #### 权限
@@ -29,7 +27,6 @@
 hf.search
 hf.search.admin
 hf.recipe
-hf.shimmer
 ```
 
 ---

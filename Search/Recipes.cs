@@ -75,7 +75,7 @@ namespace Search
             ShowCreate(id, ref lines, ref items);
 
             // 嬗变信息（合并 /shi 的展示）
-            var (shimmerLines, shimmerItems) = Shimmer.BuildLines(itemNameOrId, id);
+            var (shimmerLines, shimmerItems) = Shimmer.BuildLines(id);
 
             // 显示结果
             if (!lines.Any() && !shimmerLines.Any())

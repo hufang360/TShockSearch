@@ -27,7 +27,6 @@ namespace Search
         static readonly string permissionSearch = "hf.search";
         static readonly string permissionSearchAdmin = "hf.search.admin";
         static readonly string permissionReicpe = "hf.recipe";
-        static readonly string permissionShimmer = "hf.shimmer";
 
         /// <summary>
         /// 路径
@@ -80,8 +79,7 @@ namespace Search
             // 移除冲突的其它指令别名
             string[] cmds1 = new string[] { "search" }.Concat(_config.aliasSearch).ToArray();
             string[] cmds2 = new string[] { "recipe" }.Concat(_config.aliasRecipe).ToArray();
-            string[] cmds3 = new string[] { "shimmer" }.Concat(_config.aliasShimmer ?? Array.Empty<string>()).ToArray();
-            string[] cmdsAll = cmds1.Concat(cmds2).Concat(cmds3).ToArray();
+            string[] cmdsAll = cmds1.Concat(cmds2).ToArray();
             foreach (Command c in Commands.ChatCommands)
             {
                 foreach (var cmd in cmdsAll)
@@ -94,7 +92,6 @@ namespace Search
             // 注册指令
             Commands.ChatCommands.Add(new Command(permissionSearch, SearchCommand, cmds1) { HelpText = "查物品" });
             Commands.ChatCommands.Add(new Command(permissionReicpe, Recipes.Manage, cmds2) { HelpText = "查合成" });
-            Commands.ChatCommands.Add(new Command(permissionShimmer, Shimmer.Manage, cmds3) { HelpText = "查嬗变" });
 
 
             // 初始化数据库
